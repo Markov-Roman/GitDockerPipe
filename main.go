@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -79,11 +80,14 @@ func FilterMinus(done <-chan int, input <-chan int) <-chan int {
 					return
 				}
 				if i >= 0 {
+					log.Println("ФильтерОтрицательных: пропущено число:", i)
 					select {
 					case filteredStream <- i:
 					case <-done:
 						return
 					}
+				} else {
+					log.Println("ФильтерОтрицательных: отсеяно число:", i)
 				}
 			}
 		}
@@ -104,11 +108,14 @@ func FilterUnDiv3(done <-chan int, input <-chan int) <-chan int {
 					return
 				}
 				if (i != 0) && (i%3 == 0) {
+					log.Println("ФильтерКратности3: пропущено число:", i)
 					select {
 					case filteredStream <- i:
 					case <-done:
 						return
 					}
+				} else {
+					log.Println("ФильтерКратности3: отсеяно число:", i)
 				}
 			}
 		}
@@ -118,6 +125,7 @@ func FilterUnDiv3(done <-chan int, input <-chan int) <-chan int {
 
 func Buffer(done <-chan int, input <-chan int) <-chan int {
 	buf := NewRingBuf(SizeBuf)
+	log.Println("Создан кольцевой буфер")
 	nextChan := make(chan int)
 	go func() {
 		for {
@@ -128,6 +136,7 @@ func Buffer(done <-chan int, input <-chan int) <-chan int {
 				if !isChannelOpen {
 					return
 				}
+				log.Println("Ложим в буфер число:", i)
 				buf.Push(i)
 			}
 		}
@@ -136,6 +145,7 @@ func Buffer(done <-chan int, input <-chan int) <-chan int {
 		defer close(nextChan)
 		for {
 			time.Sleep(time.Second * time.Duration(Delay))
+			log.Println("Достаем из буфера числа")
 			out := buf.Get()
 			for _, val := range out {
 				select {
@@ -152,6 +162,7 @@ func Buffer(done <-chan int, input <-chan int) <-chan int {
 func main() {
 	done := make(chan int)
 	defer close(done)
+	log.Println("Запуск считывания чисел")
 	intStream := Init(done)
 	pipeline := Buffer(done, FilterUnDiv3(done, FilterMinus(done, intStream)))
 	for v := range pipeline {
